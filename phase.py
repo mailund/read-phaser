@@ -1,6 +1,9 @@
 import sys
 import pysam
 
+# FIXME: probably shouldn't be hardwired but be an option
+MIN_COUNT_THRESHOLD = 10
+
 if len(sys.argv) != 3:
     print 'Usage:', sys.argv[0], 'het-site-file bam-file'
     sys.exit(1)
@@ -65,11 +68,12 @@ for i in xrange(len(var_sites)):
         max_count = max(hap_type_count.values())
         likely_calls = [v for v in hap_type_count.values()
                         if v > max_count/2]
-                        
-        if max_count < 10 or len(likely_calls) < 2:
+                    
+                    
+        if max_count < MIN_COUNT_THRESHOLD or len(likely_calls) < 2:
             continue
                 
-        print var_sites[i], var_sites[j], 
-        for key,val in hap_type_count.items():
-            print key, val,
-        print
+        for gtyps,count in hap_type_count.items():
+            if count >= MIN_COUNT_THRESHOLD:
+                print var_sites[i][0], var_sites[i][1], var_sites[j][1],
+                print gtyps[0], gtyps[1], count 
