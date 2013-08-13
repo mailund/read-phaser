@@ -43,6 +43,7 @@ for i in xrange(len(var_sites)):
     
         if var_sites[j][1] - var_sites[i][1] > 100:
             break # no read can span more than 100 bps
+            # FIXME: This doesn't work when we also handle paired reads!!!
             
         valid_j_indices.append(j)
     
@@ -65,15 +66,13 @@ for i in xrange(len(var_sites)):
             except:
                 hap_type_count[key] = 1
       
-        max_count = max(hap_type_count.values())
-        likely_calls = [v for v in hap_type_count.values()
-                        if v > max_count/2]
-                    
-                    
-        if max_count < MIN_COUNT_THRESHOLD or len(likely_calls) < 2:
+        likely_calls = dict( (k,v) for k,v in hap_type_count.items()
+                                   if v >= MIN_COUNT_THRESHOLD )
+        if len(likely_calls) != 2:
             continue
                 
-        for gtyps,count in hap_type_count.items():
+        print var_sites[i][0], var_sites[i][1], var_sites[j][1],
+        for gtyps,count in likely_calls.items():
             if count >= MIN_COUNT_THRESHOLD:
-                print var_sites[i][0], var_sites[i][1], var_sites[j][1],
-                print gtyps[0], gtyps[1], count 
+                print "%s%s %d" % (gtyps[0], gtyps[1], count),
+        print
