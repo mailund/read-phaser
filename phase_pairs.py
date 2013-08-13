@@ -66,12 +66,13 @@ for i in xrange(len(var_sites)):
             except:
                 hap_type_count[key] = 1
       
-        likely_calls = [v for v in hap_type_count.values()
-                        if v >= MIN_COUNT_THRESHOLD]         
+        likely_calls = dict( (k,v) for k,v in hap_type_count.items()
+                                   if v >= MIN_COUNT_THRESHOLD )
         if len(likely_calls) != 2:
             continue
                 
-        for gtyps,count in hap_type_count.items():
+        print var_sites[i][0], var_sites[i][1], var_sites[j][1],
+        for gtyps,count in likely_calls.items():
             if count >= MIN_COUNT_THRESHOLD:
-                print var_sites[i][0], var_sites[i][1], var_sites[j][1],
-                print gtyps[0], gtyps[1], count 
+                print gtyps[0], gtyps[1], count,
+        print
