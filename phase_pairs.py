@@ -74,5 +74,5 @@ for i in xrange(len(var_sites)):
         print var_sites[i][0], var_sites[i][1], var_sites[j][1],
         for gtyps,count in likely_calls.items():
             if count >= MIN_COUNT_THRESHOLD:
-                print gtyps[0], gtyps[1], count,
+                print "%s%s %d" % (gtyps[0], gtyps[1], count),
         print
