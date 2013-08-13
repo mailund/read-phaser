@@ -68,7 +68,7 @@ for i in xrange(len(var_sites)):
       
         likely_calls = [v for v in hap_type_count.values()
                         if v >= MIN_COUNT_THRESHOLD]         
-        if len(likely_calls) < 2:
+        if len(likely_calls) != 2:
             continue
                 
         for gtyps,count in hap_type_count.items():
