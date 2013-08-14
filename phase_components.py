@@ -1,4 +1,22 @@
 import sys
+import argparse
+
+parser = argparse.ArgumentParser(description='''
+Phase haplotypes from phased pairs.
+''')
+
+parser.add_argument('pairs', nargs=1,
+                    help='List of phased pairs (use - for stdin).')
+
+args = parser.parse_args()
+
+# FIXME: handle missing files more gracefully
+if args.pairs[0] == '-':
+    infile = sys.stdin
+else:
+    infile = open(args.pairs[0])
+
+
 
 class node(object):
     def __init__(self, chrom, pos):
@@ -7,11 +25,10 @@ class node(object):
         self.in_edges = []
         self.out_edges = []
         self.component = None
-        
 nodes = dict()
 
 ## COLLECT ALL PAIRS AND BUILD SMALL GRAPHS
-for line in sys.stdin:
+for line in infile:
     chrom, pos1, pos2, phase1, _, phase2, _ = line.split()
     pos1, pos2 = int(pos1), int(pos2)
 
@@ -63,7 +80,7 @@ for locus in loci:
 
 ## Phase a connected component
 class InconsistentComponent:
-    pass
+    pass # FIXME: give warning message here rather than to stderr
 def phase_component(graph):
 
     for idx,node in enumerate(graph):
