@@ -1,25 +1,45 @@
 import sys
 import pysam
+import argparse
 
-# FIXME: probably shouldn't be hardwired but be an option
-MIN_COUNT_THRESHOLD = 10
-MAX_MARKER_DISTANCE = 1000
+parser = argparse.ArgumentParser(description='Phase pairs of het-sites.')
 
-if len(sys.argv) != 3:
-    print 'Usage:', sys.argv[0], 'het-site-file bam-file'
-    sys.exit(1)
-    
+parser.add_argument('hets', nargs=1,
+                    help='List of het-sites (use - for stdin).')
+parser.add_argument('bam', nargs=1,
+                    help='Bam-file of reads (assumed covering a single '
+                         'individual).')
+
+parser.add_argument('--min-read-count', 
+                    default=10, action='store', type=int,
+                    help='Minimum number of reads covering each phase of a '
+                    'pair of het sites.')
+parser.add_argument('--max-marker-distance', 
+                    default=1000, action='store', type=int,
+                    help='Maximal distance between two het-markers that '
+                    'will be considered.')
+
+args = parser.parse_args()
+
+# Threshold constants
+MIN_COUNT_THRESHOLD = args.min_read_count
+MAX_MARKER_DISTANCE = args.max_marker_distance
+
+# FIXME: handle missing files more gracefully
+bamfile = pysam.Samfile(args.bam[0], 'rb')
+if args.hets[0] == '-':
+    hets = sys.stdin
+else:
+    hets = open(args.hets[0])
 
 # FIXME: THIS SHOULD PROBABLY BE STREAMED SO WE DON'T HAVE TO READ IN ALL
 # THE HET SITES BEFORE WE START OUTPUTTING PHASED PAIRS
 var_sites = []
-for line in open(sys.argv[1]):
+for line in hets:
     x = line.split()
     chrom,pos = x[0],int(x[1])-1
     var_sites.append( (chrom,pos) )
-
-bamfile = pysam.Samfile(sys.argv[2], 'rb')
-
+hets.close()
 
 def get_pileup_column(site):
     '''Extract a specific column of the alignment and get 
