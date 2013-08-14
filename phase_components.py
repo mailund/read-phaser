@@ -1,8 +1,9 @@
 import sys
 import argparse
 
-parser = argparse.ArgumentParser(description='Phase haplotypes from '
-                                 'phased pairs.')
+parser = argparse.ArgumentParser(description='''
+Phase haplotypes from phased pairs.
+''')
 
 parser.add_argument('pairs', nargs=1,
                     help='List of phased pairs (use - for stdin).')
