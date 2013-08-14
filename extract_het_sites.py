@@ -31,6 +31,7 @@ for record in Reader(open(vcffile)):
     if call.is_het and len(call.data.AD) == 2:
         count1, count2 = call.data.AD
         if min(count1,count2) > args.min_read_count:
-            print record.CHROM, record.POS, 
-            print record.REF, count1, 
-            print record.ALT[0], count2
+            print "%s\t%d\t%s\t%d\t%s\t%d" % (
+                record.CHROM, record.POS, 
+                record.REF, count1, 
+                record.ALT[0], count2)
