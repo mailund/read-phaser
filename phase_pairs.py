@@ -3,12 +3,15 @@ import pysam
 
 # FIXME: probably shouldn't be hardwired but be an option
 MIN_COUNT_THRESHOLD = 10
+MAX_MARKER_DISTANCE = 1000
 
 if len(sys.argv) != 3:
     print 'Usage:', sys.argv[0], 'het-site-file bam-file'
     sys.exit(1)
     
 
+# FIXME: THIS SHOULD PROBABLY BE STREAMED SO WE DON'T HAVE TO READ IN ALL
+# THE HET SITES BEFORE WE START OUTPUTTING PHASED PAIRS
 var_sites = []
 for line in open(sys.argv[1]):
     x = line.split()
@@ -16,6 +19,7 @@ for line in open(sys.argv[1]):
     var_sites.append( (chrom,pos) )
 
 bamfile = pysam.Samfile(sys.argv[2], 'rb')
+
 
 def get_pileup_column(site):
     '''Extract a specific column of the alignment and get 
@@ -41,9 +45,8 @@ for i in xrange(len(var_sites)):
         if var_sites[j][0] != var_sites[i][0]:
             break # different chromosome, no need to continue here
     
-        if var_sites[j][1] - var_sites[i][1] > 100:
-            break # no read can span more than 100 bps
-            # FIXME: This doesn't work when we also handle paired reads!!!
+        if var_sites[j][1] - var_sites[i][1] > MAX_MARKER_DISTANCE:
+            break
             
         valid_j_indices.append(j)
     
@@ -70,9 +73,10 @@ for i in xrange(len(var_sites)):
                                    if v >= MIN_COUNT_THRESHOLD )
         if len(likely_calls) != 2:
             continue
-                
-        print var_sites[i][0], var_sites[i][1], var_sites[j][1],
-        for gtyps,count in likely_calls.items():
-            if count >= MIN_COUNT_THRESHOLD:
-                print "%s%s %d" % (gtyps[0], gtyps[1], count),
-        print
+
+        (gtype1,count1), (gtype2,count2) = likely_calls.items()
+        
+        print "%s\t%d\t%d\t%s%s\t%d\t%s%s\t%d" % (
+            var_sites[i][0], var_sites[i][1], var_sites[j][1],
+            gtype1[0],gtype1[1], count1,
+            gtype2[0],gtype2[1], count2)
