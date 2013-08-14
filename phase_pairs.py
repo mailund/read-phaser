@@ -65,6 +65,8 @@ def parse_record(record):
     return chrom, read_counts
 
 def split_counts_in_pairs(counts):
+    '''Change the counts table, so we have counts for each pair in separate
+    tables.  This makes it easier to output the phased pairs.'''
     pos_counts = dict()
     for (pos1,pos2,all1,all2),count in counts.items():
         tbl = pos_counts.setdefault( (pos1,pos2), {} )
