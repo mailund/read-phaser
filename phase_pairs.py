@@ -1,108 +1,99 @@
 import sys
-import pysam
 import argparse
 
 parser = argparse.ArgumentParser(description='Phase pairs of het-sites.')
 
-parser.add_argument('hets', nargs=1,
-                    help='List of het-sites (use - for stdin).')
-parser.add_argument('bam', nargs=1,
-                    help='Bam-file of reads (assumed covering a single '
-                         'individual).')
+parser.add_argument('samtools', nargs=1,
+                    help='Output of samtools phase (use - for stdin).')
 
 parser.add_argument('--min-read-count', 
                     default=10, action='store', type=int,
                     help='Minimum number of reads covering each phase of a '
                     'pair of het sites.')
-parser.add_argument('--max-marker-distance', 
-                    default=1000, action='store', type=int,
-                    help='Maximal distance between two het-markers that '
-                    'will be considered.')
 
 args = parser.parse_args()
 
 # Threshold constants
 MIN_COUNT_THRESHOLD = args.min_read_count
-MAX_MARKER_DISTANCE = args.max_marker_distance
 
-# FIXME: handle missing files more gracefully
-bamfile = pysam.Samfile(args.bam[0], 'rb')
-if args.hets[0] == '-':
-    hets = sys.stdin
+if args.samtools[0] == '-':
+    infile = sys.stdin
 else:
-    hets = open(args.hets[0])
-
-# FIXME: THIS SHOULD PROBABLY BE STREAMED SO WE DON'T HAVE TO READ IN ALL
-# THE HET SITES BEFORE WE START OUTPUTTING PHASED PAIRS
-var_sites = []
-for line in hets:
-    x = line.split()
-    chrom,pos = x[0],int(x[1])-1
-    var_sites.append( (chrom,pos) )
-hets.close()
-
-def get_pileup_column(site):
-    '''Extract a specific column of the alignment and get 
-    all pileup reads there. Extract the query name and the called
-    nucleotide'''
-    pileup = bamfile.pileup(site[0], site[1], site[1]+1)
-    for col in pileup:
-        if col.pos == site[1]:
-            return [(read.alignment.qname, read.alignment.seq[read.qpos])
-                    for read in col.pileups]
-    return []
+    infile = open(args.samtools[0])
 
 
-for i in xrange(len(var_sites)):
-
-    i_reads = dict( (name,allele) 
-                    for name,allele in get_pileup_column(var_sites[i]))
-
-    # Collect the j indices relevant for this i index.
-    valid_j_indices = []
-    for j in xrange(i+1,len(var_sites)):
-
-        if var_sites[j][0] != var_sites[i][0]:
-            break # different chromosome, no need to continue here
-    
-        if var_sites[j][1] - var_sites[i][1] > MAX_MARKER_DISTANCE:
-            break
-            
-        valid_j_indices.append(j)
-    
-    # now phase the i/j sites.
-    for j in valid_j_indices:
-        j_reads = dict( (name,allele) 
-                        for name,allele in get_pileup_column(var_sites[j]))
-
-        names_overlap = set(i_reads.keys()).intersection(j_reads.keys())
-        if len(names_overlap) == 0:
+def split_input_to_records(infile):
+    '''Split an input stream into records, yielding the lines within
+    each record.'''
+    cur_record = []
+    for line in infile:
+        if line.startswith('CC'):
             continue
+        if line.startswith('//'):
+            yield cur_record
+            cur_record = []
+        else:
+            cur_record.append(line)
 
-        hap_type_count = {}
-        for qname in names_overlap:
-            i_allele = i_reads[qname]
-            j_allele = j_reads[qname]
-            key = (i_allele,j_allele)
-            try:
-                hap_type_count[key] += 1
-            except:
-                hap_type_count[key] = 1
-      
-        likely_calls = dict( (k,v) for k,v in hap_type_count.items()
-                                   if v >= MIN_COUNT_THRESHOLD )
-        if len(likely_calls) != 2:
-            continue
-
-        (gtype1,count1), (gtype2,count2) = likely_calls.items()
-
-        # check that we actually have two alleles at both sites
-        alleles1 = set([gtype1[0],gtype2[0]])
-        alleles2 = set([gtype1[1],gtype2[1]])
-        if len(alleles1) != 2 or len(alleles2) != 2:
-            continue
+def parse_record(record):
+    '''Parse the lines of a record and count the number of supporting
+    reads for each pair of sites in the record.'''
+    chrom = None # is assigned each M line, but they should match
+    het_map = dict()
+    read_counts = dict()
+    for line in record:
+        if line.startswith('M'):
+            _,chrom,_,pos,_,_,hetidx,_,_,_,_ = line.split()
+            het_map[int(hetidx)] = int(pos)
         
+        if line.startswith('EV'):
+            _,_,evchrom,hetidx,_,_,_,_,_,cigar = line.split()[:10]
+            assert evchrom == chrom
+            hetidx = int(hetidx)
+            pos1 = het_map[hetidx]
+            all1 = cigar[0]
+            for hetidx2 in xrange(1,len(cigar)):
+                all2 = cigar[hetidx2]
+                if all2 == 'N': continue
+                
+                pos2 = het_map[hetidx + hetidx2]
+                try:
+                    read_counts[(pos1,pos2,all1,all2)] += 1
+                except:
+                    read_counts[(pos1,pos2,all1,all2)] = 1
+
+    return chrom, read_counts
+
+def split_counts_in_pairs(counts):
+    pos_counts = dict()
+    for (pos1,pos2,all1,all2),count in counts.items():
+        tbl = pos_counts.setdefault( (pos1,pos2), {} )
+        tbl[(all1,all2)] = count
+    return pos_counts
+
+
+for record in split_input_to_records(infile):
+    chrom,counts = parse_record(record)
+    pos_counts = split_counts_in_pairs(counts)
+    pos_in_record = pos_counts.keys()
+    pos_in_record.sort()
+    
+    for pos1,pos2 in pos_in_record:
+        allele_counts = [(k,v) for (k,v) in pos_counts[(pos1,pos2)].items()
+                                   if v >= MIN_COUNT_THRESHOLD ]
+                                   
+        if len(allele_counts) != 2:
+            continue # skip if we can't count exactly two
+        
+        (a11,a12),count1 = allele_counts[0]
+        (a21,a22),count2 = allele_counts[1]
+        
+        if a11 == a21 or a12 == a22:
+            continue # one of the sites is not het (in the supported reads)
+            
         print "%s\t%d\t%d\t%s%s\t%d\t%s%s\t%d" % (
-            var_sites[i][0], var_sites[i][1], var_sites[j][1],
-            gtype1[0],gtype1[1], count1,
-            gtype2[0],gtype2[1], count2)
+                chrom, pos1, pos2,
+                a11,a12, count1,
+                a21,a22, count2
+            )
+
