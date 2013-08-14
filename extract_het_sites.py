@@ -1,24 +1,36 @@
 import sys
 from vcf import Reader
+import argparse
 
-if len(sys.argv) != 3:
-    print 'Usage:', sys.argv[0], 'vcf-file sample'
-    sys.exit(1)
+parser = argparse.ArgumentParser(description='''
+Extracts all het-sites for bi-allelic markers for one sample.
+''')
+
+parser.add_argument('vcf', nargs=1,
+                    help='VCF-file of called variants.')
+parser.add_argument('sample', nargs=1,
+                    help='Sample to extract het-sites for.')
+
+parser.add_argument('--min-read-count', 
+                    default=10, action='store', type=int,
+                    help='Minimum number of reads covering each allele.')
+
+args = parser.parse_args()
+
     
-vcffile = sys.argv[1]
-sample = sys.argv[2]
+vcffile = args.vcf[0]
+sample = args.sample[0]
 
 for record in Reader(open(vcffile)):
     if record.FILTER:
         continue
     if len(record.ALT) != 1:
-        continue # FIXME: this isn't necessary but makes the output 
-                 # slightly easier to work with
+        continue
     
     call = record.genotype(sample)
     if call.is_het and len(call.data.AD) == 2:
         count1, count2 = call.data.AD
-        if min(count1,count2) > 5:
+        if min(count1,count2) > args.min_read_count:
             print record.CHROM, record.POS, 
             print record.REF, count1, 
             print record.ALT[0], count2
