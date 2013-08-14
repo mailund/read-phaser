@@ -75,6 +75,12 @@ for i in xrange(len(var_sites)):
             continue
 
         (gtype1,count1), (gtype2,count2) = likely_calls.items()
+
+        # check that we actually have two alleles at both sites
+        alleles1 = set([gtype1[0],gtype2[0]])
+        alleles2 = set([gtype1[1],gtype2[1]])
+        if len(alleles1) != 2 or len(alleles2) != 2:
+            continue
         
         print "%s\t%d\t%d\t%s%s\t%d\t%s%s\t%d" % (
             var_sites[i][0], var_sites[i][1], var_sites[j][1],
