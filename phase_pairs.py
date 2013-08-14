@@ -47,12 +47,12 @@ def parse_record(record):
             het_map[int(hetidx)] = int(pos)
         
         if line.startswith('EV'):
-            _,_,evchrom,hetidx,_,_,_,_,_,cigar = line.split()[:10]
+            _,_,evchrom,hetidx,_,_,_,_,_,seq = line.split()[:10]
             assert evchrom == chrom
             hetidx = int(hetidx)
             pos1 = het_map[hetidx]
             all1 = cigar[0]
-            for hetidx2 in xrange(1,len(cigar)):
+            for hetidx2 in xrange(1,len(seq)):
                 all2 = cigar[hetidx2]
                 if all2 == 'N': continue
                 
