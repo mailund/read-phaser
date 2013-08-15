@@ -209,7 +209,7 @@ def phase_finished_components(buffer, max_src, flush = False):
     else:
         finished, new_buffer = split_components(components, max_src)
 
-    for component in components:
+    for component in finished:
         try:
             phase_component(component)
         except InconsistentComponent:
@@ -225,7 +225,6 @@ new_buffer = phase_finished_components(buffer, max_src, not more_pairs)
 while more_pairs:
     buffer, max_src, more_pairs = collect_buffer_of_nodes(new_buffer,max_src)
     new_buffer = phase_finished_components(buffer, max_src, not more_pairs)
-
 
 #print 'digraph reads {'
 #for locus in loci:
