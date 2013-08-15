@@ -8,6 +8,14 @@ Phase haplotypes from phased pairs.
 parser.add_argument('pairs', nargs=1,
                     help='List of phased pairs (use - for stdin).')
 
+parser.add_argument('--buffer', 
+                    default=1000, action='store', type=int,
+                    help='''
+    Number of pairs to read in before processing a batch of connected
+    components. The default should be a good choice for must purposes.
+    ''')
+
+
 args = parser.parse_args()
 
 # FIXME: handle missing files more gracefully
@@ -25,27 +33,54 @@ class node(object):
         self.in_edges = []
         self.out_edges = []
         self.component = None
-nodes = dict()
 
-## COLLECT ALL PAIRS AND BUILD SMALL GRAPHS
-for line in infile:
-    chrom, pos1, pos2, phase1, _, phase2, _ = line.split()
-    pos1, pos2 = int(pos1), int(pos2)
+def collect_buffer_of_nodes(buffer, max_src = 0):
+    '''Collect a number of pairs into a buffer to be processed.
+    
+    Parameter *buffer* is the left-overs from the last buffer processed.
+    This is the buffer that will be extended.
+    
+    Parameter *max_src* is the largest source node seen in the previous
+    call.
+    
+    Returns the new buffer, the largest source node seen, and a status
+    flag indicating if there are more pairs in the input file.
+    '''
+    number_inserted = 0
+    for line in infile:
+        chrom, pos1, pos2, phase1, _, phase2, _ = line.split()
+        pos1, pos2 = int(pos1), int(pos2)
 
-    try:
-        src = nodes[(chrom,pos1)]
-    except:    
-        src = node(chrom,pos1)
-        nodes[(chrom,pos1)] = src
+        try:
+            src = buffer[(chrom,pos1)]
+        except:
+            src = node(chrom,pos1)
+            buffer[(chrom,pos1)] = src
         
-    try:
-        dst = nodes[(chrom,pos2)]
-    except:
-        dst = node(chrom,pos2)
-        nodes[(chrom,pos2)] = dst
+        try:
+            dst = buffer[(chrom,pos2)]
+        except:
+            dst = node(chrom,pos2)
+            buffer[(chrom,pos2)] = dst
         
-    src.out_edges.append( (phase1,phase2,dst) )
-    dst.in_edges.append(  (phase1,phase2,src) )
+        src.out_edges.append( (phase1,phase2,dst) )
+        dst.in_edges.append(  (phase1,phase2,src) )
+
+        if src.pos > max_src:
+            max_src += src.pos
+
+        number_inserted += 1
+        if number_inserted > args.buffer:
+            return buffer, max_src, True
+    return buffer, max_src, False
+
+buffer, max_src, more_pairs = collect_buffer_of_nodes(dict())
+print buffer
+while more_pairs:
+    buffer, max_src, more_pairs = collect_buffer_of_nodes(buffer,max_src)
+    print buffer
+
+sys.exit(0)
 
 loci = nodes.keys()
 loci.sort()
