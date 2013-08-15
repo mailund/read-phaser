@@ -34,6 +34,7 @@ class node(object):
         self.out_edges = []
         self.component = None
 
+# FIXME: Doesn't handle switches from one chromosome to another!!!
 def collect_buffer_of_nodes(buffer, max_src = 0):
     '''Collect a number of pairs into a buffer to be processed.
     
@@ -67,50 +68,77 @@ def collect_buffer_of_nodes(buffer, max_src = 0):
         dst.in_edges.append(  (phase1,phase2,src) )
 
         if src.pos > max_src:
-            max_src += src.pos
+            max_src = src.pos
 
         number_inserted += 1
-        if number_inserted > args.buffer:
+        if number_inserted >= args.buffer:
             return buffer, max_src, True
     return buffer, max_src, False
 
+def split_in_components(nodes):
+    '''Split a buffer of nodes into connected components.'''
+
+    def assign_components(node, component):
+        def dfs(n):
+            if n.component is not None:
+                assert n.component == component
+            else:
+                n.component = component
+                for _,_,src in n.in_edges:
+                    dfs(src)
+                for _,_,dst in n.out_edges:
+                    dfs(dst)
+        dfs(node)
+
+    loci = nodes.keys()
+    loci.sort()
+
+    component = 0
+    for locus in loci:
+        node = nodes[locus]
+        if node.component is None:
+            assign_components(node,component)
+            component += 1
+
+    components = [ list() for i in xrange(component) ]
+    for locus in loci:
+        node = nodes[locus]
+        components[node.component].append(node)
+
+    return components
+
+def split_components(components, max_src):
+    '''Split a list of components in those that are done
+    and those that are potentially still incomplete (based on *max_src*).
+    
+    Returns the finished components as a list and the non-finished
+    as nodes in a dictionary matching the buffer format.
+    '''
+    finished_components = []
+    new_buffer = {}
+    for component in components:
+        max_pos = max(n.pos for n in component)
+        if max_pos < max_src:
+            finished_components.append(component)
+        else:
+            for n in component:
+                n.component = None # don't save the assignment for next time
+                new_buffer[(n.chrom,n.pos)] = n
+    return finished_components, new_buffer
+
+## MAIN LOOP, READING IN PAIRS AND PROCESSING BUFFERS
 buffer, max_src, more_pairs = collect_buffer_of_nodes(dict())
-print buffer
+components = split_in_components(buffer)
+finished, new_buffer = split_components(components, max_src)
+print len(finished), len(new_buffer)
 while more_pairs:
-    buffer, max_src, more_pairs = collect_buffer_of_nodes(buffer,max_src)
-    print buffer
+    buffer, max_src, more_pairs = collect_buffer_of_nodes(new_buffer,max_src)
+    components = split_in_components(buffer)
+    finished, new_buffer = split_components(components, max_src)
+    print len(finished), len(new_buffer)
 
 sys.exit(0)
 
-loci = nodes.keys()
-loci.sort()
-
-## COLLECT GRAPHS IN CONNECTED COMPONENTS - FIXME: handle 
-## component assignments on the fly so we don't have to contain all the
-## data in memory before we can process it...
-def assign_components(node, component):
-    def dfs(n):
-        if n.component is not None:
-            assert n.component == component
-        else:
-            n.component = component
-            for _,_,src in n.in_edges:
-                dfs(src)
-            for _,_,dst in n.out_edges:
-                dfs(dst)
-    dfs(node)
-
-component = 0
-for locus in loci:
-    node = nodes[locus]
-    if node.component is None:
-        assign_components(node,component)
-        component += 1
-
-components = [ list() for i in xrange(component) ]
-for locus in loci:
-    node = nodes[locus]
-    components[node.component].append(node)
 
 
 ## Phase a connected component
