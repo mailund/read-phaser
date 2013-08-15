@@ -73,6 +73,7 @@ def collect_buffer_of_nodes(buffer, max_src = 0):
         number_inserted += 1
         if number_inserted >= args.buffer:
             return buffer, max_src, True
+            
     return buffer, max_src, False
 
 def split_in_components(nodes):
@@ -220,17 +221,44 @@ def phase_finished_components(buffer, max_src, flush = False):
 
 
 ## MAIN LOOP, READING IN PAIRS AND PROCESSING BUFFERS
-buffer, max_src, more_pairs = collect_buffer_of_nodes(dict())
-new_buffer = phase_finished_components(buffer, max_src, not more_pairs)
-while more_pairs:
-    buffer, max_src, more_pairs = collect_buffer_of_nodes(new_buffer,max_src)
-    new_buffer = phase_finished_components(buffer, max_src, not more_pairs)
+buffer = {}
+max_src = 0
+number_inserted = 0
+last_chrom = None
+for line in infile:
+    chrom, pos1, pos2, phase1, _, phase2, _ = line.split()
+    pos1, pos2 = int(pos1), int(pos2)
 
-#print 'digraph reads {'
-#for locus in loci:
-#    node = nodes[locus]
-#    for phase1,phase2,dst in node.out_edges:
-#        print '"%s:%d<%d>"' % (node.chrom,node.pos,node.component), '->',
-#        print '"%s:%d<%d>"' % (dst.chrom,dst.pos,dst.component),
-#        print '[label="%s|%s"]' % (phase1,phase2), ';'
-#print '}'
+    if chrom != last_chrom:
+        # flush the buffer when we switch chromosome
+        buffer = phase_finished_components(buffer, max_src, True)
+        last_chrom = chrom
+        max_src = pos1
+
+    try:
+        src = buffer[(chrom,pos1)]
+    except:
+        src = node(chrom,pos1)
+        buffer[(chrom,pos1)] = src
+        
+    try:
+        dst = buffer[(chrom,pos2)]
+    except:
+        dst = node(chrom,pos2)
+        buffer[(chrom,pos2)] = dst
+        
+    src.out_edges.append( (phase1,phase2,dst) )
+    dst.in_edges.append(  (phase1,phase2,src) )
+
+    if src.pos > max_src:
+        max_src = src.pos
+
+    number_inserted += 1
+    if number_inserted >= args.buffer:
+        buffer = phase_finished_components(buffer, max_src, False)
+        number_inserted = 0
+            
+# flush last buffer
+phase_finished_components(buffer, max_src, True)
+
+
