@@ -126,25 +126,11 @@ def split_components(components, max_src):
                 new_buffer[(n.chrom,n.pos)] = n
     return finished_components, new_buffer
 
-## MAIN LOOP, READING IN PAIRS AND PROCESSING BUFFERS
-buffer, max_src, more_pairs = collect_buffer_of_nodes(dict())
-components = split_in_components(buffer)
-finished, new_buffer = split_components(components, max_src)
-print len(finished), len(new_buffer)
-while more_pairs:
-    buffer, max_src, more_pairs = collect_buffer_of_nodes(new_buffer,max_src)
-    components = split_in_components(buffer)
-    finished, new_buffer = split_components(components, max_src)
-    print len(finished), len(new_buffer)
-
-sys.exit(0)
-
-
-
 ## Phase a connected component
 class InconsistentComponent:
     pass # FIXME: give warning message here rather than to stderr
 def phase_component(graph):
+    '''Phase a finished component and write the phase to stdout.'''
 
     for idx,node in enumerate(graph):
         out_allele_1 = [phase1[0] for phase1,phase2,n in node.out_edges]
@@ -213,12 +199,32 @@ def phase_component(graph):
          ''.join(hap1), ''.join(hap2))
 
 
-for graph in components:
-    try:
-        phase_component(graph)
-    except InconsistentComponent:
-        pass
+def phase_finished_components(buffer, max_src, flush = False):
+    '''Build components, phase those that are completely read in,
+    and return an updated buffer with the nodes that are not completed.'''
 
+    components = split_in_components(buffer)
+    if flush:
+        finished, new_buffer = components, dict()
+    else:
+        finished, new_buffer = split_components(components, max_src)
+
+    for component in components:
+        try:
+            phase_component(component)
+        except InconsistentComponent:
+            pass
+    
+    return new_buffer
+
+
+
+## MAIN LOOP, READING IN PAIRS AND PROCESSING BUFFERS
+buffer, max_src, more_pairs = collect_buffer_of_nodes(dict())
+new_buffer = phase_finished_components(buffer, max_src, not more_pairs)
+while more_pairs:
+    buffer, max_src, more_pairs = collect_buffer_of_nodes(new_buffer,max_src)
+    new_buffer = phase_finished_components(buffer, max_src, not more_pairs)
 
 
 #print 'digraph reads {'
