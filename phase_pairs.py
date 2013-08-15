@@ -51,9 +51,9 @@ def parse_record(record):
             assert evchrom == chrom
             hetidx = int(hetidx)
             pos1 = het_map[hetidx]
-            all1 = cigar[0]
+            all1 = seq[0]
             for hetidx2 in xrange(1,len(seq)):
-                all2 = cigar[hetidx2]
+                all2 = seq[hetidx2]
                 if all2 == 'N': continue
                 
                 pos2 = het_map[hetidx + hetidx2]
@@ -74,28 +74,35 @@ def split_counts_in_pairs(counts):
     return pos_counts
 
 
-for record in split_input_to_records(infile):
-    chrom,counts = parse_record(record)
-    pos_counts = split_counts_in_pairs(counts)
-    pos_in_record = pos_counts.keys()
-    pos_in_record.sort()
+def process_pairs(infile):
+    for record in split_input_to_records(infile):
+        chrom,counts = parse_record(record)
+        pos_counts = split_counts_in_pairs(counts)
+        pos_in_record = pos_counts.keys()
+        pos_in_record.sort()
     
-    for pos1,pos2 in pos_in_record:
-        allele_counts = [(k,v) for (k,v) in pos_counts[(pos1,pos2)].items()
-                                   if v >= MIN_COUNT_THRESHOLD ]
+        for pos1,pos2 in pos_in_record:
+            allele_counts = [(k,v) for (k,v) in pos_counts[(pos1,pos2)].items()
+                                             if v >= MIN_COUNT_THRESHOLD ]
                                    
-        if len(allele_counts) != 2:
-            continue # skip if we can't count exactly two
+            if len(allele_counts) != 2:
+                continue # skip if we can't count exactly two
         
-        (a11,a12),count1 = allele_counts[0]
-        (a21,a22),count2 = allele_counts[1]
+            (a11,a12),count1 = allele_counts[0]
+            (a21,a22),count2 = allele_counts[1]
         
-        if a11 == a21 or a12 == a22:
-            continue # one of the sites is not het (in the supported reads)
+            if a11 == a21 or a12 == a22:
+                continue # one of the sites is not het (in the supported reads)
             
-        print "%s\t%d\t%d\t%s%s\t%d\t%s%s\t%d" % (
-                chrom, pos1, pos2,
-                a11,a12, count1,
-                a21,a22, count2
-            )
+            print "%s\t%d\t%d\t%s%s\t%d\t%s%s\t%d" % (
+                    chrom, pos1, pos2,
+                    a11,a12, count1,
+                    a21,a22, count2
+                )
 
+
+try:
+    process_pairs(infile)
+except IOError, e:
+    if e.errno == errno.EPIPE:
+        pass
