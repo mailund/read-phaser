@@ -47,12 +47,12 @@ def parse_record(record):
             het_map[int(hetidx)] = int(pos)
         
         if line.startswith('EV'):
-            _,_,evchrom,hetidx,_,_,_,_,_,cigar = line.split()[:10]
+            _,_,evchrom,hetidx,_,_,_,_,_,seq = line.split()[:10]
             assert evchrom == chrom
             hetidx = int(hetidx)
             pos1 = het_map[hetidx]
             all1 = cigar[0]
-            for hetidx2 in xrange(1,len(cigar)):
+            for hetidx2 in xrange(1,len(seq)):
                 all2 = cigar[hetidx2]
                 if all2 == 'N': continue
                 
@@ -65,6 +65,8 @@ def parse_record(record):
     return chrom, read_counts
 
 def split_counts_in_pairs(counts):
+    '''Change the counts table, so we have counts for each pair in separate
+    tables.  This makes it easier to output the phased pairs.'''
     pos_counts = dict()
     for (pos1,pos2,all1,all2),count in counts.items():
         tbl = pos_counts.setdefault( (pos1,pos2), {} )
