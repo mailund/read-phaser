@@ -219,46 +219,53 @@ def phase_finished_components(buffer, max_src, flush = False):
     return new_buffer
 
 
+def process_file(infile):
+    ## MAIN LOOP, READING IN PAIRS AND PROCESSING BUFFERS
+    buffer = {}
+    max_src = 0
+    number_inserted = 0
+    last_chrom = None
+    for line in infile:
+        chrom, pos1, pos2, phase1, _, phase2, _ = line.split()
+        pos1, pos2 = int(pos1), int(pos2)
 
-## MAIN LOOP, READING IN PAIRS AND PROCESSING BUFFERS
-buffer = {}
-max_src = 0
-number_inserted = 0
-last_chrom = None
-for line in infile:
-    chrom, pos1, pos2, phase1, _, phase2, _ = line.split()
-    pos1, pos2 = int(pos1), int(pos2)
+        if chrom != last_chrom:
+            # flush the buffer when we switch chromosome
+            buffer = phase_finished_components(buffer, max_src, True)
+            last_chrom = chrom
+            max_src = pos1
 
-    if chrom != last_chrom:
-        # flush the buffer when we switch chromosome
-        buffer = phase_finished_components(buffer, max_src, True)
-        last_chrom = chrom
-        max_src = pos1
-
-    try:
-        src = buffer[(chrom,pos1)]
-    except:
-        src = node(chrom,pos1)
-        buffer[(chrom,pos1)] = src
+        try:
+            src = buffer[(chrom,pos1)]
+        except:
+            src = node(chrom,pos1)
+            buffer[(chrom,pos1)] = src
         
-    try:
-        dst = buffer[(chrom,pos2)]
-    except:
-        dst = node(chrom,pos2)
-        buffer[(chrom,pos2)] = dst
+        try:
+            dst = buffer[(chrom,pos2)]
+        except:
+            dst = node(chrom,pos2)
+            buffer[(chrom,pos2)] = dst
         
-    src.out_edges.append( (phase1,phase2,dst) )
-    dst.in_edges.append(  (phase1,phase2,src) )
+        src.out_edges.append( (phase1,phase2,dst) )
+        dst.in_edges.append(  (phase1,phase2,src) )
 
-    if src.pos > max_src:
-        max_src = src.pos
+        if src.pos > max_src:
+            max_src = src.pos
 
-    number_inserted += 1
-    if number_inserted >= args.buffer:
-        buffer = phase_finished_components(buffer, max_src, False)
-        number_inserted = 0
+        number_inserted += 1
+        if number_inserted >= args.buffer:
+            buffer = phase_finished_components(buffer, max_src, False)
+            number_inserted = 0
             
-# flush last buffer
-phase_finished_components(buffer, max_src, True)
+    # flush last buffer
+    phase_finished_components(buffer, max_src, True)
+
+
+try:
+    process_file(infile)
+except IOError, e:
+    if e.errno == errno.EPIPE:
+        pass
 
 
