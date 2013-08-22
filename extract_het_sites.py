@@ -17,11 +17,15 @@ parser.add_argument('--min-read-count',
 
 args = parser.parse_args()
 
-    
-vcffile = args.vcf[0]
+# FIXME: handle missing files more gracefully
+if args.vcf[0] == '-':
+    vcffile = sys.stdin
+else:
+    vcffile = open(args.vcf[0])
+
 sample = args.sample[0]
 
-for record in Reader(open(vcffile)):
+for record in Reader(vcffile):
     if record.FILTER:
         continue
     if len(record.ALT) != 1:
