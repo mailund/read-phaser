@@ -32,7 +32,7 @@ for record in Reader(vcffile):
         continue
     
     call = record.genotype(sample)
-    if call.is_het and len(call.data.AD) == 2:
+    if call.is_het and call.data.AD is not None and len(call.data.AD) == 2:
         count1, count2 = call.data.AD
         if min(count1,count2) > args.min_read_count:
             print "%s\t%d\t%s\t%d\t%s\t%d" % (
